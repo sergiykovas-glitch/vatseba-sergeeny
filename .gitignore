@@ -9,3 +9,10 @@ _mkzip.py
 assets/bg-intro-mobile.mp4
 assets/bg-loop-mobile.mp4
 assets/loop-poster.jpg
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
