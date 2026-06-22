@@ -1,0 +1,11 @@
+# source files & local junk — NOT part of the published site
+Video/
+hf_*.png
+Знімок екрана*.png
+site-deploy.zip
+_mkzip.py
+
+# unused source clips (kept locally for re-editing, not served)
+assets/bg-intro-mobile.mp4
+assets/bg-loop-mobile.mp4
+assets/loop-poster.jpg

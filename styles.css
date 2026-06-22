@@ -1,0 +1,328 @@
+/* ============================================================
+   Vatseba Sergeeny — video-background landing
+   ============================================================ */
+
+:root {
+  --cream:    #fff9f2;
+  --orange:   #c03001;
+  --amber:    #e08a3c;
+  --coffee:   #c9b8ae;
+
+  --serif: "DM Serif Display", Georgia, serif;
+  --body:  "Inclusive Sans", "Inter", system-ui, sans-serif;
+  --mono:  "Space Mono", "JetBrains Mono", monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+/* reserve the scrollbar's space so expanding the panel never shifts the layout */
+html { scrollbar-gutter: stable; }
+/* Safari ignores scrollbar-gutter — reserve the space with a permanent scrollbar */
+@supports not (scrollbar-gutter: stable) { html { overflow-y: scroll; } }
+
+body {
+  font-family: var(--body);
+  color: var(--cream);
+  /* still frame from the video shows until the .mp4 is added */
+  background:
+    linear-gradient(rgba(17,11,9,.28), rgba(17,11,9,.42)),
+    url("assets/bg-poster.png") center / cover no-repeat,
+    #110b09;
+  min-height: 100svh;
+  overflow-x: hidden;
+  cursor: url("assets/cursor.svg") 4 3, auto;
+}
+
+/* musical-note cursor on anything clickable */
+a, button, .social, .link {
+  cursor: url("assets/cursor-pointer.svg") 4 3, pointer;
+}
+/* touch devices have no cursor — don't force the custom one */
+@media (pointer: coarse) {
+  body, a, button, .social, .link { cursor: auto; }
+}
+
+/* ---------- background video (single continuous clip) ---------- */
+.bgvid {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  /* the clip's own first frame as a background — never black before it paints */
+  background: #110b09 url("assets/intro-poster.jpg") center / cover no-repeat;
+}
+body.no-video .bgvid { opacity: 0; transition: opacity .8s ease; } /* → still frame */
+
+/* readability gradient over the video */
+.vignette {
+  position: fixed; inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 28%,
+                                rgba(0,0,0,0) 45%, rgba(0,0,0,.72) 100%);
+}
+
+/* ============================================================
+   Overlay
+   ============================================================ */
+.overlay {
+  position: relative;
+  z-index: 3;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: clamp(20px, 5vw, 48px) clamp(18px, 4vw, 40px);
+  text-align: center;
+}
+
+/* fade everything in once the page is ready */
+.brand, .panel { opacity: 0; transform: translateY(14px); transition: opacity .9s ease, transform .9s ease; }
+body.ready .brand  { opacity: 1; transform: none; transition-delay: .2s; }
+body.ready .panel  { opacity: 1; transform: none; transition-delay: .5s; }
+
+/* ---------- brand ---------- */
+.brand { margin-top: clamp(6px, 3vh, 30px); }
+.brand-name {
+  display: block;
+  font-family: var(--serif);
+  font-size: clamp(30px, 8vw, 64px);
+  line-height: 1.12;            /* room so descenders (g, y) aren't clipped by background-clip:text */
+  padding-bottom: .06em;
+  letter-spacing: .01em;
+  background: linear-gradient(100deg, var(--cream) 28%, #ffe2b0 50%, var(--cream) 72%);
+  background-size: 220% auto;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  filter: drop-shadow(0 3px 22px rgba(0,0,0,.6));
+  animation: shimmer 7s linear infinite;
+}
+@keyframes shimmer { to { background-position: 220% center; } }
+.brand-sub {
+  display: block;
+  font-family: var(--mono);
+  font-size: clamp(9px, 2.6vw, 12px);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--coffee);
+  margin-top: 12px;
+  text-shadow: 0 2px 12px rgba(0,0,0,.6);
+}
+
+/* ---------- link panel ---------- */
+.panel {
+  width: min(94vw, 380px);
+  margin-bottom: clamp(8px, 2vh, 24px);
+  background: rgba(18, 12, 9, .42);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid rgba(255, 249, 242, .14);
+  border-radius: 14px;
+  padding: clamp(16px, 5vw, 24px);
+  box-shadow: 0 24px 60px -20px rgba(0,0,0,.7);
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--coffee);
+  margin-bottom: 14px;
+}
+
+@keyframes riseIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.link {
+  position: relative;
+  overflow: hidden;
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 16px;
+  margin-bottom: 9px;
+  border: 1px solid rgba(255,249,242,.16);
+  border-radius: 7px;
+  background: rgba(255,249,242,.05);
+  color: var(--cream);
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 13.5px; letter-spacing: .04em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: border-color .2s ease, box-shadow .28s ease, background .28s ease;
+}
+/* staggered entrance for the primary links */
+body.ready #links .link { animation: riseIn .6s cubic-bezier(.2,.8,.3,1) forwards; }
+#links .link:nth-child(1) { animation-delay: .50s; }
+#links .link:nth-child(2) { animation-delay: .62s; }
+#links .link:nth-child(3) { animation-delay: .74s; }
+#links .link:nth-child(4) { animation-delay: .86s; }
+
+/* brand-colour wash sliding in */
+.link::before {
+  content: ""; position: absolute; inset: 0; z-index: 0;
+  background: var(--brand, var(--orange));
+  opacity: 0; transform: translateX(-14%);
+  transition: opacity .3s ease, transform .35s ease;
+}
+.link:hover::before, .link:focus-visible::before { opacity: .14; transform: translateX(0); }
+
+/* diagonal sheen sweep */
+.link::after {
+  content: ""; position: absolute; top: 0; left: -70%; z-index: 1;
+  width: 45%; height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.22), transparent);
+  transform: skewX(-18deg);
+  transition: left .55s ease;
+  pointer-events: none;
+}
+.link:hover::after, .link:focus-visible::after { left: 135%; }
+
+.link:hover, .link:focus-visible {
+  border-color: var(--brand, var(--orange));
+  background: rgba(255,249,242,.07);
+  box-shadow: 0 12px 30px -14px rgba(0,0,0,.85),
+              0 0 22px -6px var(--brand, var(--orange));
+  outline: none;
+}
+
+.ic, .ln, .ar { position: relative; z-index: 2; }
+.ic {
+  width: 20px; height: 20px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px rgba(0,0,0,.4));
+  transition: transform .25s cubic-bezier(.2,1.4,.4,1);
+}
+.link:hover .ic { transform: scale(1.18) rotate(-7deg); }
+.ln { flex: 1 1 auto; text-align: left; }
+.ar { color: var(--coffee); font-size: 12px; transition: transform .2s, color .2s; }
+.link:hover .ar { transform: translate(3px,-3px); color: var(--cream); }
+
+/* ---------- "show more" smooth reveal ---------- */
+#more {
+  display: grid;
+  grid-template-rows: 0fr;          /* collapsed */
+  transition: grid-template-rows .45s cubic-bezier(.2,.8,.3,1);
+}
+#more.open { grid-template-rows: 1fr; }   /* expands to auto height, animated */
+
+.more-inner {
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;               /* keeps collapsed links out of tab order */
+  transition: opacity .35s ease, visibility .35s;
+}
+#more.open .more-inner { opacity: 1; visibility: visible; }
+
+/* the revealed links rise in one after another */
+.more-inner .link {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .4s ease, transform .4s cubic-bezier(.2,.8,.3,1),
+              border-color .2s ease, box-shadow .28s ease, background .28s ease;
+}
+#more.open .more-inner .link { opacity: 1; transform: none; }
+#more.open .more-inner .link:nth-child(1) { transition-delay: .10s; }
+#more.open .more-inner .link:nth-child(2) { transition-delay: .18s; }
+#more.open .more-inner .link:nth-child(3) { transition-delay: .26s; }
+#more.open .more-inner .link:nth-child(4) { transition-delay: .34s; }
+
+.show-more {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono);
+  text-transform: uppercase; letter-spacing: .14em;
+  font-size: 11px;
+  color: var(--cream);
+  background: transparent;
+  border: 1px dashed rgba(255,249,242,.3);
+  border-radius: 6px;
+  padding: 9px 16px;
+  margin: 4px 0 16px;
+  cursor: pointer;
+  transition: border-color .18s, color .18s, background .18s;
+}
+.show-more:hover { border-color: var(--amber); color: var(--amber); background: rgba(255,249,242,.05); }
+.sm-chevron { font-size: 10px; line-height: 1; transition: transform .4s cubic-bezier(.2,.8,.3,1); }
+.show-more.open .sm-chevron { transform: rotate(180deg); }
+
+/* ---------- socials ---------- */
+.socials { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
+.social {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border: 1px solid rgba(255,249,242,.18);
+  border-radius: 50%;
+  background: rgba(255,249,242,.04);
+  transition: border-color .18s, transform .18s, background .18s;
+}
+.social img { width: 19px; height: 19px; transition: transform .18s; }
+.social:hover {
+  border-color: var(--amber);
+  background: rgba(255,249,242,.1);
+  transform: translateY(-3px);
+}
+.social:hover img { transform: scale(1.12); }
+
+/* ============================================================
+   Offline / 404 error state — faint "404" over the spinning video
+   ============================================================ */
+.err {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 24px;
+  padding: 24px; text-align: center;
+}
+.err-404 {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -58%);
+  font-family: var(--serif);
+  font-size: clamp(160px, 46vw, 420px);
+  line-height: 1;
+  color: rgba(255, 249, 242, .06);    /* faint, transparent 404 */
+  pointer-events: none; user-select: none; z-index: 0;
+}
+.err-msg, .err .back { position: relative; z-index: 1; }
+.err-msg {
+  font-family: var(--mono); font-size: 12px;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--coffee);
+}
+.err .back {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--cream); text-decoration: none;
+  border: 1px solid rgba(255,249,242,.2);
+  border-radius: 6px; padding: 9px 16px;
+  transition: border-color .18s, color .18s;
+}
+.err .back:hover { border-color: var(--amber); color: var(--amber); }
+
+/* overlay on the main page when offline — light scrim so the spinning video stays visible */
+#offline {
+  position: fixed; inset: 0; z-index: 9;
+  display: none; place-items: center;
+  background: rgba(10, 7, 6, .42);
+}
+#offline.show { display: grid; animation: fadeIn .4s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* fallback for browsers without backdrop-filter (older / low-end) — keep panel text readable */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .panel { background: rgba(18, 12, 9, .82); }
+}
+
+/* standalone 404 page wrapper */
+.err-page { position: relative; z-index: 3; min-height: 100svh; display: grid; place-items: center; }
+
+/* ============================================================
+   Accessibility — reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001s !important;
+  }
+  .brand, .panel, #links .link { opacity: 1 !important; transform: none !important; }
+  .brand-name { animation: none !important; }
+}
