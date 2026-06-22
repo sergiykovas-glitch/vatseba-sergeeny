@@ -82,7 +82,9 @@
 
   const SRC_MOBILE  = "assets/bg-mobile.mp4";
   const SRC_DESKTOP = "assets/bg-desktop.mp4";
-  const LOOP_START  = 2.0417;   // seconds — where the loop portion begins (= intro length)
+  const LOOP_START_MOBILE  = 2.0417;   // = mobile intro length
+  const LOOP_START_DESKTOP = 2.6667;   // = desktop intro length
+  let loopStart = LOOP_START_MOBILE;   // updated to match the active source
 
   let currentSrc = null;
   let needsGesture = false;     // true if autoplay was blocked and a tap is required
@@ -102,9 +104,11 @@
   let triedFallback = false;
 
   function setSrc() {
-    const want = isPortrait() ? SRC_MOBILE : SRC_DESKTOP;
+    const portrait = isPortrait();
+    const want = portrait ? SRC_MOBILE : SRC_DESKTOP;
     if (want === currentSrc) return;
     currentSrc = want;
+    loopStart = portrait ? LOOP_START_MOBILE : LOOP_START_DESKTOP;
     triedFallback = false;
     body.classList.remove("no-video");
     video.src = want;
@@ -115,7 +119,7 @@
 
   // loop only the spinning part: jump back past the intro to LOOP_START
   function loopBack() {
-    try { video.currentTime = LOOP_START; } catch (e) {}
+    try { video.currentTime = loopStart; } catch (e) {}
     if (video.paused) video.play().catch(() => {});
   }
   // timeupdate only fires ~4×/sec — use a wide window so the wrap is caught reliably…
@@ -132,6 +136,7 @@
     if (!triedFallback && currentSrc !== SRC_MOBILE) {
       triedFallback = true;
       currentSrc = SRC_MOBILE;
+      loopStart = LOOP_START_MOBILE;
       body.classList.remove("no-video");
       video.src = SRC_MOBILE;
       video.load();
