@@ -117,17 +117,13 @@
     play();
   }
 
-  // loop only the spinning part: jump back past the intro to LOOP_START
+  // loop only the spinning part: at the very END, jump back past the intro to LOOP_START.
+  // Waiting for the real 'ended' lets the closing dissolve finish completely, so it is
+  // never interrupted mid-way (that interruption was the visible jerk).
   function loopBack() {
     try { video.currentTime = loopStart; } catch (e) {}
-    if (video.paused) video.play().catch(() => {});
+    video.play().catch(() => {});
   }
-  // timeupdate only fires ~4×/sec — use a wide window so the wrap is caught reliably…
-  video.addEventListener("timeupdate", () => {
-    const d = video.duration;
-    if (isFinite(d) && d > 0 && video.currentTime >= d - 0.3) loopBack();
-  });
-  // …and ALWAYS catch it here even if a timeupdate is missed → the loop never stops
   video.addEventListener("ended", loopBack);
 
   // chosen file missing (desktop video not added yet, or a wrong device guess) → fall
