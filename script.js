@@ -80,6 +80,15 @@
   const video = $("bgvid");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // In-app browsers (TikTok / Instagram / Facebook WebViews) can't reliably play an inline
+  // muted background video: autoplay is blocked AND any later play() call hijacks the clip
+  // into the OS's native fullscreen player (it covers the menu, with play/pause + seek). On
+  // iOS this is the host app not setting allowsInlineMediaPlayback — the page can't override
+  // it. So in these browsers we NEVER load or play the video; the device poster is shown as a
+  // still frame instead. Detection is by user-agent (BytedanceWebview = TikTok on iOS+Android).
+  const inAppWebView =
+    /musical_ly|trill_\d|BytedanceWebview|TikTok|Instagram|FBAN|FBAV|FBIOS|FB_IAB/i.test(navigator.userAgent || "");
+
   // loopStart = the KEYFRAME time where the spin loop begins (just after the needle-drop
   // intro). It must sit exactly on a keyframe so the seek is clean, and MUST be re-checked
   // (ffprobe -skip_frame nokey) and updated if a .mp4 is ever re-encoded.
@@ -112,11 +121,13 @@
     loopStart = s.loopStart;
     wrapping = false; clearTimeout(wrapTimer);      // don't carry a stale wrap guard across a swap
     video.poster = s.poster;                        // device-correct poster → no wrong/black flash
-    video.style.backgroundImage = `url("${s.poster}")`;
+    video.style.backgroundImage = `url("${s.poster}")`;   // painted as the element's bg → still frame
     body.classList.remove("no-video");
+    // Restricted WebViews & reduced-motion: show ONLY the poster. Never set src / call play()
+    // here — in an in-app browser a play() hijacks the clip into the native fullscreen player.
+    if (reduceMotion || inAppWebView) return;
     video.src = s.src;
     video.load();
-    if (reduceMotion) { body.classList.add("no-video"); return; }   // honour reduced-motion
     play();
   }
 
@@ -169,15 +180,17 @@
   window.addEventListener("pagehide", stopVideo);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) stopVideo();
-    else if (!reduceMotion && video.paused) video.play().catch(() => {});   // resume on return
+    else if (!reduceMotion && !inAppWebView && video.paused) video.play().catch(() => {});   // resume on return
   });
 
   // if the clip stalls on a phone, nudge it back to playing
   ["stalled", "waiting"].forEach((ev) =>
-    video.addEventListener(ev, () => { if (video.paused) video.play().catch(() => {}); })
+    video.addEventListener(ev, () => { if (!inAppWebView && video.paused) video.play().catch(() => {}); })
   );
 
-  // if autoplay was blocked (iOS Low Power Mode, some in-app browsers), start on first tap
+  // if autoplay was blocked (iOS Low Power Mode, some in-app browsers), start on first tap.
+  // NOT registered in restricted WebViews: there, a gesture-driven play() would open the
+  // native fullscreen player — exactly the bug we're avoiding. Those visitors get the poster.
   function resumeOnGesture() {
     if (!needsGesture) return;
     const p = video.play();
@@ -185,9 +198,11 @@
       p.then(() => { needsGesture = false; body.classList.remove("no-video"); }).catch(() => {});
     }
   }
-  ["pointerdown", "touchstart", "keydown"].forEach((e) =>
-    window.addEventListener(e, resumeOnGesture, { passive: true })
-  );
+  if (!inAppWebView) {
+    ["pointerdown", "touchstart", "keydown"].forEach((e) =>
+      window.addEventListener(e, resumeOnGesture, { passive: true })
+    );
+  }
 
   setSrc();
 
