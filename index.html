@@ -38,10 +38,11 @@
   <!-- Background: an "intro" clip (needle drops) plays once, then cross-fades
        into a seamless "loop" clip. Desktop / mobile sets chosen by script.js.
        Until the .mp4 files exist, the still frame (bg-poster) shows. -->
-  <!-- One continuous clip: needle-drop intro then a seamless spinning loop.
-       The loop part repeats by seeking back, so the intro plays only once.
-       One <video> = one decoder + one autoplay → reliable across Safari / in-app browsers. -->
-  <video id="bgvid" class="bgvid" muted playsinline preload="auto" poster="assets/intro-poster.jpg"></video>
+  <!-- Two layers: the intro (top) plays once, then we cross-fade to the loop (beneath),
+       which uses the browser's NATIVE loop for a perfectly smooth, gap-free repeat.
+       Posters are set per-device by script.js so there's never a wrong/black flash. -->
+  <video id="vidLoop"  class="bgvid"              muted loop playsinline preload="auto"></video>
+  <video id="vidIntro" class="bgvid bgvid--intro" muted      playsinline preload="auto"></video>
   <div class="vignette"></div>
 
   <main class="overlay">

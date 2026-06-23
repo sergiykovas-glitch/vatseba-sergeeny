@@ -73,97 +73,105 @@
     showMore.setAttribute("aria-expanded", open ? "true" : "false");
   });
 
-  // ---------- background video (one continuous clip: intro → loop) ----------
-  // The clip is the needle-drop intro followed by a seamless spinning loop. The loop
-  // portion repeats by seeking back to LOOP_START, so the intro plays only once.
-  // ONE <video> = one decoder + one autoplay → reliable on Safari / in-app browsers.
-  const video = $("bgvid");
+  // ---------- background video (intro layer → native-looping loop layer) ----------
+  // The intro plays once on top; we cross-fade to the loop layer underneath, which uses
+  // the browser's NATIVE loop for a perfectly smooth, gap-free repeat (no seeking → no
+  // stutter). Two muted layers; only one decodes at a time apart from a brief cross-fade.
+  const vidIntro = $("vidIntro");
+  const vidLoop  = $("vidLoop");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const SRC_MOBILE  = "assets/bg-mobile.mp4";
-  const SRC_DESKTOP = "assets/bg-desktop.mp4";
-  const LOOP_START_MOBILE  = 2.0417;   // = mobile intro length
-  const LOOP_START_DESKTOP = 2.6667;   // = desktop intro length
-  let loopStart = LOOP_START_MOBILE;   // updated to match the active source
+  const SETS = {
+    mobile:  { intro: "assets/bg-intro-mobile.mp4", loop: "assets/bg-loop-mobile.mp4", poster: "assets/intro-poster.jpg" },
+    desktop: { intro: "assets/bg-intro.mp4",        loop: "assets/bg-loop.mp4",        poster: "assets/intro-poster-desktop.jpg" },
+  };
 
-  let currentSrc = null;
-  let needsGesture = false;     // true if autoplay was blocked and a tap is required
+  let currentSet = null;
+  let introDone = false;
+  let needsGesture = false;
 
   const isPortrait = () =>
     window.matchMedia("(max-width: 820px)").matches ||
     window.innerHeight > window.innerWidth;
 
-  function play() {
-    const p = video.play();
+  function tryPlay(v) {
+    const p = v.play();
     if (p && typeof p.then === "function") {
-      p.then(() => { needsGesture = false; body.classList.remove("no-video"); })
-       .catch(() => { needsGesture = true; });   // blocked → the poster frame stays visible
+      p.then(() => { needsGesture = false; }).catch(() => { needsGesture = true; });
     }
   }
 
-  let triedFallback = false;
+  // reveal the looping layer — but only once it has actually painted a frame, so the intro
+  // (holding its last frame) covers any decode gap → no black flash
+  function revealLoop() {
+    if (introDone) return;
+    introDone = true;
+    let shown = false;
+    const show = () => { if (!shown) { shown = true; body.classList.add("intro-done"); } };
+    if ("requestVideoFrameCallback" in vidLoop) {
+      try { vidLoop.requestVideoFrameCallback(() => show()); } catch (e) {}
+    }
+    vidLoop.addEventListener("playing", show, { once: true });
+    setTimeout(show, 800);          // safety net
+    tryPlay(vidLoop);               // native loop → smooth, gap-free forever
+  }
 
-  function setSrc() {
-    const portrait = isPortrait();
-    const want = portrait ? SRC_MOBILE : SRC_DESKTOP;
-    if (want === currentSrc) return;
-    currentSrc = want;
-    loopStart = portrait ? LOOP_START_MOBILE : LOOP_START_DESKTOP;
-    triedFallback = false;
+  function startSet(force) {
+    const name = isPortrait() ? "mobile" : "desktop";
+    if (name === currentSet && !force) return;
+    currentSet = name;
+    const s = SETS[name];
+
+    // device-correct poster/background → no wrong (portrait-on-desktop) or black flash
+    vidIntro.poster = s.poster; vidLoop.poster = s.poster;
+    vidIntro.style.backgroundImage = `url("${s.poster}")`;
+    vidLoop.style.backgroundImage  = `url("${s.poster}")`;
+
+    vidLoop.src = s.loop;
+    vidLoop.load();
+
     body.classList.remove("no-video");
-    video.src = want;
-    video.load();
     if (reduceMotion) { body.classList.add("no-video"); return; }   // honour reduced-motion
-    play();
+
+    if (introDone) { body.classList.add("intro-done"); tryPlay(vidLoop); return; }
+
+    body.classList.remove("intro-done");
+    vidIntro.src = s.intro;
+    vidIntro.load();
+    tryPlay(vidIntro);
   }
 
-  // loop only the spinning part: at the very END, jump back past the intro to LOOP_START.
-  // Waiting for the real 'ended' lets the closing dissolve finish completely, so it is
-  // never interrupted mid-way (that interruption was the visible jerk).
-  function loopBack() {
-    try { video.currentTime = loopStart; } catch (e) {}
-    video.play().catch(() => {});
-  }
-  video.addEventListener("ended", loopBack);
-
-  // chosen file missing (desktop video not added yet, or a wrong device guess) → fall
-  // back to the mobile clip so there is always animation; only then show the still poster
-  video.addEventListener("error", () => {
-    if (!triedFallback && currentSrc !== SRC_MOBILE) {
-      triedFallback = true;
-      currentSrc = SRC_MOBILE;
-      loopStart = LOOP_START_MOBILE;
-      body.classList.remove("no-video");
-      video.src = SRC_MOBILE;
-      video.load();
-      play();
-    } else {
-      body.classList.add("no-video");
-    }
+  // cross-fade to the loop just before the intro ends (and guaranteed on 'ended')
+  vidIntro.addEventListener("timeupdate", () => {
+    const d = vidIntro.duration;
+    if (isFinite(d) && d > 0 && vidIntro.currentTime >= d - 0.25) revealLoop();
   });
+  vidIntro.addEventListener("ended", revealLoop);
+  vidIntro.addEventListener("error", revealLoop);   // no intro → go straight to the loop
 
-  // if the clip stalls on a phone, nudge it back to playing
+  // loop file missing → show the still poster
+  vidLoop.addEventListener("error", () => { body.classList.add("no-video"); });
+
+  // if the loop stalls on a phone, nudge it back
   ["stalled", "waiting"].forEach((ev) =>
-    video.addEventListener(ev, () => { if (video.paused) video.play().catch(() => {}); })
+    vidLoop.addEventListener(ev, () => { if (introDone && vidLoop.paused) vidLoop.play().catch(() => {}); })
   );
 
   // if autoplay was blocked (iOS Low Power Mode, some in-app browsers), start on first tap
   function resumeOnGesture() {
     if (!needsGesture) return;
-    const p = video.play();
-    if (p && typeof p.then === "function") {
-      p.then(() => { needsGesture = false; body.classList.remove("no-video"); }).catch(() => {});
-    }
+    (introDone ? vidLoop : vidIntro).play()
+      .then(() => { needsGesture = false; }).catch(() => {});
   }
   ["pointerdown", "touchstart", "keydown"].forEach((e) =>
     window.addEventListener(e, resumeOnGesture, { passive: true })
   );
 
-  setSrc();
+  startSet();
 
-  // re-pick mobile/desktop source on resize, debounced
+  // re-pick mobile/desktop set on resize, debounced
   let resizeTimer;
-  function onResize() { clearTimeout(resizeTimer); resizeTimer = setTimeout(setSrc, 200); }
+  function onResize() { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => startSet(), 200); }
   window.addEventListener("resize", onResize);
   window.addEventListener("orientationchange", onResize);
 

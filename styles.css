@@ -42,16 +42,18 @@ a, button, .social, .link {
   body, a, button, .social, .link { cursor: auto; }
 }
 
-/* ---------- background video (single continuous clip) ---------- */
+/* ---------- background video (intro layer + native-looping loop layer) ---------- */
 .bgvid {
   position: fixed; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
   z-index: 0;
-  /* the clip's own first frame as a background — never black before it paints */
-  background: #110b09 url("assets/intro-poster.jpg") center / cover no-repeat;
+  background: #110b09 center / cover no-repeat;   /* poster image set per-device by JS */
 }
-body.no-video .bgvid { opacity: 0; transition: opacity .8s ease; } /* → still frame */
+#vidLoop { z-index: 0; }                            /* loop sits underneath */
+.bgvid--intro { z-index: 1; opacity: 1; transition: opacity .25s ease; }  /* intro on top */
+body.intro-done .bgvid--intro { opacity: 0; }      /* cross-fade reveals the looping layer */
+body.no-video   .bgvid { opacity: 0; transition: opacity .8s ease; }      /* → still poster */
 
 /* readability gradient over the video */
 .vignette {
