@@ -151,6 +151,27 @@
   // file missing → show the still poster
   video.addEventListener("error", () => { body.classList.add("no-video"); });
 
+  // belt-and-braces: if a WebView ever manages to put the clip into Picture-in-Picture,
+  // kick it straight back out — we never want a floating mini-player.
+  video.addEventListener("enterpictureinpicture", () => {
+    if (document.exitPictureInPicture) document.exitPictureInPicture().catch(() => {});
+  });
+
+  // When the visitor taps a link and leaves, stop the clip so no floating PiP / native
+  // player survives onto the next page. pagehide covers the bfcache + in-app browsers.
+  function stopVideo() {
+    try {
+      video.pause();
+      if (document.pictureInPictureElement === video && document.exitPictureInPicture)
+        document.exitPictureInPicture().catch(() => {});
+    } catch (e) {}
+  }
+  window.addEventListener("pagehide", stopVideo);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stopVideo();
+    else if (!reduceMotion && video.paused) video.play().catch(() => {});   // resume on return
+  });
+
   // if the clip stalls on a phone, nudge it back to playing
   ["stalled", "waiting"].forEach((ev) =>
     video.addEventListener(ev, () => { if (video.paused) video.play().catch(() => {}); })

@@ -40,7 +40,9 @@
   <!-- ONE continuous clip per device: needle-drop intro then a spinning loop. The loop
        repeats by seeking the tail back past the intro — a single element, so two videos
        can never be on screen at once. Poster set per-device by script.js. -->
-  <video id="bgvid" class="bgvid" muted playsinline preload="auto" aria-hidden="true"></video>
+  <video id="bgvid" class="bgvid" muted playsinline webkit-playsinline preload="auto"
+         disablepictureinpicture disableremoteplayback x5-playsinline x5-video-player-type="h5"
+         tabindex="-1" aria-hidden="true"></video>
   <div class="vignette"></div>
 
   <main class="overlay">
