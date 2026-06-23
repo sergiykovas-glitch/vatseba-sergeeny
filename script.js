@@ -115,26 +115,33 @@
     play();
   }
 
-  // gentle loop: at the very last painted frame, seek the tail back past the intro.
-  // Seeking WHILE playing (not waiting for 'ended') avoids the full-stop lag.
+  // Loop ONLY the spin: seek the tail back to loopStart (skipping the intro) WHILE the clip
+  // is still playing — well before the end, so the browser never restarts the whole file
+  // from 0 (which would replay the needle-drop intro).
+  let wrapping = false;
   function wrap() {
+    if (wrapping) return;
+    wrapping = true;
     try { video.currentTime = loopStart; } catch (e) {}
-    if (video.paused) video.play().catch(() => {});
+    video.play().catch(() => {});
+    setTimeout(() => { wrapping = false; }, 400);
   }
+  // precise wrap where supported
   if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
     const onFrame = (now, meta) => {
       const d = video.duration;
-      if (isFinite(d) && d > 0 && meta.mediaTime >= d - 0.05) wrap();
+      if (isFinite(d) && d > 0 && meta.mediaTime >= d - 0.12) wrap();
       video.requestVideoFrameCallback(onFrame);
     };
     video.requestVideoFrameCallback(onFrame);
-  } else {
-    video.addEventListener("timeupdate", () => {
-      const d = video.duration;
-      if (isFinite(d) && d > 0 && video.currentTime >= d - 0.15) wrap();
-    });
   }
-  video.addEventListener("ended", wrap);            // guaranteed backstop
+  // reliable safety net: a wide window so a seek ALWAYS happens before the file can end
+  video.addEventListener("timeupdate", () => {
+    const d = video.duration;
+    if (isFinite(d) && d > 0 && video.currentTime >= d - 0.35) wrap();
+  });
+  // truly last resort: if it ever ends, restart from the loop, never from 0
+  video.addEventListener("ended", () => { video.currentTime = loopStart; video.play().catch(() => {}); });
 
   // file missing → show the still poster
   video.addEventListener("error", () => { body.classList.add("no-video"); });
