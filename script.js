@@ -101,20 +101,33 @@
     }
   }
 
-  // reveal the looping layer — but only once it has actually painted a frame, so the intro
-  // (holding its last frame) covers any decode gap → no black flash
+  let loopStarted = false, loopPrimed = false, pendingReveal = false;
+
+  // start the loop playing HIDDEN behind the intro
+  function startLoop() {
+    if (loopStarted) return;
+    loopStarted = true;
+    tryPlay(vidLoop);
+  }
+
+  // INSTANT hard cut — hide the intro and resume the loop from its matched frame.
+  // There is NO cross-fade, so the two layers are never visible at once (no "double video").
   function revealLoop() {
     if (introDone) return;
     introDone = true;
-    let shown = false;
-    const show = () => { if (!shown) { shown = true; body.classList.add("intro-done"); } };
-    if ("requestVideoFrameCallback" in vidLoop) {
-      try { vidLoop.requestVideoFrameCallback(() => show()); } catch (e) {}
-    }
-    vidLoop.addEventListener("playing", show, { once: true });
-    setTimeout(show, 800);          // safety net
-    tryPlay(vidLoop);               // native loop → smooth, gap-free forever
+    vidLoop.play().catch(() => {});
+    body.classList.add("intro-done");
   }
+
+  // Once the loop has played past its opening dissolve (~0.5s) it shows the SAME frame the
+  // intro ends on. Pause it there, so the hard cut lands on an identical frame → seamless.
+  vidLoop.addEventListener("timeupdate", () => {
+    if (loopStarted && !loopPrimed && !introDone && vidLoop.currentTime >= 0.5) {
+      loopPrimed = true;
+      vidLoop.pause();
+      if (pendingReveal) revealLoop();
+    }
+  });
 
   function startSet(force) {
     const name = isPortrait() ? "mobile" : "desktop";
@@ -141,13 +154,17 @@
     tryPlay(vidIntro);
   }
 
-  // cross-fade to the loop just before the intro ends (and guaranteed on 'ended')
   vidIntro.addEventListener("timeupdate", () => {
     const d = vidIntro.duration;
-    if (isFinite(d) && d > 0 && vidIntro.currentTime >= d - 0.25) revealLoop();
+    if (isFinite(d) && d > 0 && vidIntro.currentTime >= d - 1.0) startLoop();  // warm up early
   });
-  vidIntro.addEventListener("ended", revealLoop);
-  vidIntro.addEventListener("error", revealLoop);   // no intro → go straight to the loop
+  vidIntro.addEventListener("ended", () => {
+    startLoop();
+    if (loopPrimed) revealLoop();
+    else pendingReveal = true;                // wait until the loop reaches its matched frame
+    setTimeout(() => revealLoop(), 1500);     // hard safety so it never gets stuck
+  });
+  vidIntro.addEventListener("error", () => { startLoop(); revealLoop(); });   // no intro → loop
 
   // loop file missing → show the still poster
   vidLoop.addEventListener("error", () => { body.classList.add("no-video"); });

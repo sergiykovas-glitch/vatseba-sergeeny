@@ -51,7 +51,7 @@ a, button, .social, .link {
   background: #110b09 center / cover no-repeat;   /* poster image set per-device by JS */
 }
 #vidLoop { z-index: 0; }                            /* loop sits underneath */
-.bgvid--intro { z-index: 1; opacity: 1; transition: opacity .25s ease; }  /* intro on top */
+.bgvid--intro { z-index: 1; opacity: 1; transition: opacity 0s; }  /* intro on top; instant hard cut */
 body.intro-done .bgvid--intro { opacity: 0; }      /* cross-fade reveals the looping layer */
 body.no-video   .bgvid { opacity: 0; transition: opacity .8s ease; }      /* → still poster */
 
