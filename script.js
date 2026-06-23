@@ -73,122 +73,94 @@
     showMore.setAttribute("aria-expanded", open ? "true" : "false");
   });
 
-  // ---------- background video (intro layer → native-looping loop layer) ----------
-  // The intro plays once on top; we cross-fade to the loop layer underneath, which uses
-  // the browser's NATIVE loop for a perfectly smooth, gap-free repeat (no seeking → no
-  // stutter). Two muted layers; only one decodes at a time apart from a brief cross-fade.
-  const vidIntro = $("vidIntro");
-  const vidLoop  = $("vidLoop");
+  // ---------- background video (one continuous clip: intro → loop) ----------
+  // ONE <video> element — so two videos can NEVER be on screen at once (no overlap / ghost
+  // needle). The needle-drop intro plays once, then the spinning loop repeats by seeking the
+  // tail back past the intro. The clip's tail dissolves into its start, so the wrap is gentle.
+  const video = $("bgvid");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const SETS = {
-    mobile:  { intro: "assets/bg-intro-mobile.mp4", loop: "assets/bg-loop-mobile.mp4", poster: "assets/intro-poster.jpg" },
-    desktop: { intro: "assets/bg-intro.mp4",        loop: "assets/bg-loop.mp4",        poster: "assets/intro-poster-desktop.jpg" },
+    mobile:  { src: "assets/bg-mobile.mp4",  loopStart: 2.0417, poster: "assets/intro-poster.jpg" },
+    desktop: { src: "assets/bg-desktop.mp4", loopStart: 2.6667, poster: "assets/intro-poster-desktop.jpg" },
   };
 
-  let currentSet = null;
-  let introDone = false;
+  let currentSrc = null;
+  let loopStart = SETS.mobile.loopStart;
   let needsGesture = false;
 
   const isPortrait = () =>
     window.matchMedia("(max-width: 820px)").matches ||
     window.innerHeight > window.innerWidth;
 
-  function tryPlay(v) {
-    const p = v.play();
+  function play() {
+    const p = video.play();
     if (p && typeof p.then === "function") {
-      p.then(() => { needsGesture = false; }).catch(() => { needsGesture = true; });
+      p.then(() => { needsGesture = false; body.classList.remove("no-video"); })
+       .catch(() => { needsGesture = true; });   // blocked → the poster frame stays visible
     }
   }
 
-  let loopStarted = false, loopPrimed = false, pendingReveal = false;
-
-  // start the loop playing HIDDEN behind the intro
-  function startLoop() {
-    if (loopStarted) return;
-    loopStarted = true;
-    tryPlay(vidLoop);
-  }
-
-  // INSTANT hard cut — hide the intro and resume the loop from its matched frame.
-  // There is NO cross-fade, so the two layers are never visible at once (no "double video").
-  function revealLoop() {
-    if (introDone) return;
-    introDone = true;
-    vidLoop.play().catch(() => {});
-    body.classList.add("intro-done");
-  }
-
-  // Once the loop has played past its opening dissolve (~0.5s) it shows the SAME frame the
-  // intro ends on. Pause it there, so the hard cut lands on an identical frame → seamless.
-  vidLoop.addEventListener("timeupdate", () => {
-    if (loopStarted && !loopPrimed && !introDone && vidLoop.currentTime >= 0.5) {
-      loopPrimed = true;
-      vidLoop.pause();
-      if (pendingReveal) revealLoop();
-    }
-  });
-
-  function startSet(force) {
-    const name = isPortrait() ? "mobile" : "desktop";
-    if (name === currentSet && !force) return;
-    currentSet = name;
-    const s = SETS[name];
-
-    // device-correct poster/background → no wrong (portrait-on-desktop) or black flash
-    vidIntro.poster = s.poster; vidLoop.poster = s.poster;
-    vidIntro.style.backgroundImage = `url("${s.poster}")`;
-    vidLoop.style.backgroundImage  = `url("${s.poster}")`;
-
-    vidLoop.src = s.loop;
-    vidLoop.load();
-
+  function setSrc() {
+    const s = isPortrait() ? SETS.mobile : SETS.desktop;
+    if (s.src === currentSrc) return;
+    currentSrc = s.src;
+    loopStart = s.loopStart;
+    video.poster = s.poster;                        // device-correct poster → no wrong/black flash
+    video.style.backgroundImage = `url("${s.poster}")`;
     body.classList.remove("no-video");
+    video.src = s.src;
+    video.load();
     if (reduceMotion) { body.classList.add("no-video"); return; }   // honour reduced-motion
-
-    if (introDone) { body.classList.add("intro-done"); tryPlay(vidLoop); return; }
-
-    body.classList.remove("intro-done");
-    vidIntro.src = s.intro;
-    vidIntro.load();
-    tryPlay(vidIntro);
+    play();
   }
 
-  vidIntro.addEventListener("timeupdate", () => {
-    const d = vidIntro.duration;
-    if (isFinite(d) && d > 0 && vidIntro.currentTime >= d - 1.0) startLoop();  // warm up early
-  });
-  vidIntro.addEventListener("ended", () => {
-    startLoop();
-    if (loopPrimed) revealLoop();
-    else pendingReveal = true;                // wait until the loop reaches its matched frame
-    setTimeout(() => revealLoop(), 1500);     // hard safety so it never gets stuck
-  });
-  vidIntro.addEventListener("error", () => { startLoop(); revealLoop(); });   // no intro → loop
+  // gentle loop: at the very last painted frame, seek the tail back past the intro.
+  // Seeking WHILE playing (not waiting for 'ended') avoids the full-stop lag.
+  function wrap() {
+    try { video.currentTime = loopStart; } catch (e) {}
+    if (video.paused) video.play().catch(() => {});
+  }
+  if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
+    const onFrame = (now, meta) => {
+      const d = video.duration;
+      if (isFinite(d) && d > 0 && meta.mediaTime >= d - 0.05) wrap();
+      video.requestVideoFrameCallback(onFrame);
+    };
+    video.requestVideoFrameCallback(onFrame);
+  } else {
+    video.addEventListener("timeupdate", () => {
+      const d = video.duration;
+      if (isFinite(d) && d > 0 && video.currentTime >= d - 0.15) wrap();
+    });
+  }
+  video.addEventListener("ended", wrap);            // guaranteed backstop
 
-  // loop file missing → show the still poster
-  vidLoop.addEventListener("error", () => { body.classList.add("no-video"); });
+  // file missing → show the still poster
+  video.addEventListener("error", () => { body.classList.add("no-video"); });
 
-  // if the loop stalls on a phone, nudge it back
+  // if the clip stalls on a phone, nudge it back to playing
   ["stalled", "waiting"].forEach((ev) =>
-    vidLoop.addEventListener(ev, () => { if (introDone && vidLoop.paused) vidLoop.play().catch(() => {}); })
+    video.addEventListener(ev, () => { if (video.paused) video.play().catch(() => {}); })
   );
 
   // if autoplay was blocked (iOS Low Power Mode, some in-app browsers), start on first tap
   function resumeOnGesture() {
     if (!needsGesture) return;
-    (introDone ? vidLoop : vidIntro).play()
-      .then(() => { needsGesture = false; }).catch(() => {});
+    const p = video.play();
+    if (p && typeof p.then === "function") {
+      p.then(() => { needsGesture = false; body.classList.remove("no-video"); }).catch(() => {});
+    }
   }
   ["pointerdown", "touchstart", "keydown"].forEach((e) =>
     window.addEventListener(e, resumeOnGesture, { passive: true })
   );
 
-  startSet();
+  setSrc();
 
-  // re-pick mobile/desktop set on resize, debounced
+  // re-pick mobile/desktop source on resize, debounced
   let resizeTimer;
-  function onResize() { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => startSet(), 200); }
+  function onResize() { clearTimeout(resizeTimer); resizeTimer = setTimeout(setSrc, 200); }
   window.addEventListener("resize", onResize);
   window.addEventListener("orientationchange", onResize);
 
