@@ -1,4 +1,4 @@
-# Security headers (applied automatically on Netlify / Cloudflare Pages)
+# Security headers (applied automatically on Cloudflare Pages)
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff

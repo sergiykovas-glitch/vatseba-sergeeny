@@ -21,12 +21,14 @@
   <meta property="og:url" content="https://vatseba-sergeeny.pages.dev/" />
   <meta property="og:title" content="Vatseba Sergeeny — Empty Places" />
   <meta property="og:description" content="Listen everywhere — Spotify · Apple Music · YouTube Music." />
-  <meta property="og:image" content="https://vatseba-sergeeny.pages.dev/assets/empty-places.png" />
+  <meta property="og:image" content="https://vatseba-sergeeny.pages.dev/assets/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Empty Places — cover art" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Vatseba Sergeeny — Empty Places" />
   <meta name="twitter:description" content="Listen everywhere — Spotify · Apple Music · YouTube Music." />
-  <meta name="twitter:image" content="https://vatseba-sergeeny.pages.dev/assets/empty-places.png" />
+  <meta name="twitter:image" content="https://vatseba-sergeeny.pages.dev/assets/og-image.jpg" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -35,13 +37,10 @@
 </head>
 <body class="loading">
 
-  <!-- Background: an "intro" clip (needle drops) plays once, then cross-fades
-       into a seamless "loop" clip. Desktop / mobile sets chosen by script.js.
-       Until the .mp4 files exist, the still frame (bg-poster) shows. -->
   <!-- ONE continuous clip per device: needle-drop intro then a spinning loop. The loop
        repeats by seeking the tail back past the intro — a single element, so two videos
        can never be on screen at once. Poster set per-device by script.js. -->
-  <video id="bgvid" class="bgvid" muted playsinline preload="auto"></video>
+  <video id="bgvid" class="bgvid" muted playsinline preload="auto" aria-hidden="true"></video>
   <div class="vignette"></div>
 
   <main class="overlay">

@@ -26,7 +26,7 @@ body {
   /* still frame from the video shows until the .mp4 is added */
   background:
     linear-gradient(rgba(17,11,9,.28), rgba(17,11,9,.42)),
-    url("assets/bg-poster.png") center / cover no-repeat,
+    url("assets/bg-poster.jpg") center / cover no-repeat,
     #110b09;
   min-height: 100svh;
   overflow-x: hidden;

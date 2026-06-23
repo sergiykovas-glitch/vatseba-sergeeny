@@ -59,7 +59,7 @@
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     a.setAttribute("aria-label", s.label || "");
-    a.innerHTML = `<img src="assets/icons/${esc(s.icon)}.svg" alt="${esc(s.label)}" />`;
+    a.innerHTML = `<img src="assets/icons/${esc(s.icon)}.svg" alt="" />`;  /* link already has aria-label */
     $("socials").appendChild(a);
   });
 
@@ -80,14 +80,18 @@
   const video = $("bgvid");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // loopStart = the KEYFRAME time where the spin loop begins (just after the needle-drop
+  // intro). It must sit exactly on a keyframe so the seek is clean, and MUST be re-checked
+  // (ffprobe -skip_frame nokey) and updated if a .mp4 is ever re-encoded.
   const SETS = {
-    mobile:  { src: "assets/bg-mobile.mp4",  loopStart: 2.0417, poster: "assets/intro-poster.jpg" },
-    desktop: { src: "assets/bg-desktop.mp4", loopStart: 2.6667, poster: "assets/intro-poster-desktop.jpg" },
+    mobile:  { src: "assets/bg-mobile.mp4",  loopStart: 2.0833, poster: "assets/intro-poster.jpg" },
+    desktop: { src: "assets/bg-desktop.mp4", loopStart: 2.7083, poster: "assets/intro-poster-desktop.jpg" },
   };
 
   let currentSrc = null;
   let loopStart = SETS.mobile.loopStart;
   let needsGesture = false;
+  let wrapping = false, wrapTimer = null;
 
   const isPortrait = () =>
     window.matchMedia("(max-width: 820px)").matches ||
@@ -106,6 +110,7 @@
     if (s.src === currentSrc) return;
     currentSrc = s.src;
     loopStart = s.loopStart;
+    wrapping = false; clearTimeout(wrapTimer);      // don't carry a stale wrap guard across a swap
     video.poster = s.poster;                        // device-correct poster → no wrong/black flash
     video.style.backgroundImage = `url("${s.poster}")`;
     body.classList.remove("no-video");
@@ -118,13 +123,12 @@
   // Loop ONLY the spin: seek the tail back to loopStart (skipping the intro) WHILE the clip
   // is still playing — well before the end, so the browser never restarts the whole file
   // from 0 (which would replay the needle-drop intro).
-  let wrapping = false;
   function wrap() {
     if (wrapping) return;
     wrapping = true;
     try { video.currentTime = loopStart; } catch (e) {}
     video.play().catch(() => {});
-    setTimeout(() => { wrapping = false; }, 400);
+    wrapTimer = setTimeout(() => { wrapping = false; }, 400);
   }
   // precise wrap where supported
   if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
@@ -136,9 +140,10 @@
     video.requestVideoFrameCallback(onFrame);
   }
   // reliable safety net: a wide window so a seek ALWAYS happens before the file can end
+  // (covers in-app WebViews without requestVideoFrameCallback and sparse timeupdate ticks)
   video.addEventListener("timeupdate", () => {
     const d = video.duration;
-    if (isFinite(d) && d > 0 && video.currentTime >= d - 0.35) wrap();
+    if (isFinite(d) && d > 0 && video.currentTime >= d - 0.5) wrap();
   });
   // truly last resort: if it ever ends, restart from the loop, never from 0
   video.addEventListener("ended", () => { video.currentTime = loopStart; video.play().catch(() => {}); });
@@ -165,11 +170,13 @@
 
   setSrc();
 
-  // re-pick mobile/desktop source on resize, debounced
-  let resizeTimer;
-  function onResize() { clearTimeout(resizeTimer); resizeTimer = setTimeout(setSrc, 200); }
-  window.addEventListener("resize", onResize);
-  window.addEventListener("orientationchange", onResize);
+  // re-pick the source only when the device CLASS actually changes — not on every raw
+  // resize (iOS fires resize on URL-bar show/hide, which would re-download/re-decode the clip)
+  const mq = window.matchMedia("(max-width: 820px)");
+  const onClassChange = () => setSrc();
+  if (mq.addEventListener) mq.addEventListener("change", onClassChange);
+  else if (mq.addListener) mq.addListener(onClassChange);          // older Safari
+  window.addEventListener("orientationchange", onClassChange);
 
   // ---------- reveal UI ----------
   window.addEventListener("load", () => { body.classList.remove("loading"); body.classList.add("ready"); });
@@ -183,7 +190,11 @@
     offlineEl.classList.toggle("show", on);
     offlineEl.setAttribute("aria-hidden", on ? "false" : "true");
     // keep keyboard focus out of the hidden page behind the overlay
-    if (mainEl) { on ? mainEl.setAttribute("inert", "") : mainEl.removeAttribute("inert"); }
+    // (inert handles modern browsers; aria-hidden is the fallback for older ones)
+    if (mainEl) {
+      if (on) { mainEl.setAttribute("inert", ""); mainEl.setAttribute("aria-hidden", "true"); }
+      else { mainEl.removeAttribute("inert"); mainEl.removeAttribute("aria-hidden"); }
+    }
   }
   window.addEventListener("offline", () => setOffline(true));
   window.addEventListener("online",  () => setOffline(false));

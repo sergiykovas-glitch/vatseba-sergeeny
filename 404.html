@@ -16,9 +16,9 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- same looping background as the main site (still frame until the .mp4 exists) -->
-  <video class="bgvid" autoplay muted loop playsinline poster="assets/bg-poster.png">
-    <source src="assets/bg-loop-mobile.mp4" type="video/mp4" />
+  <!-- same background clip as the main site (native loop here is fine for a 404 page) -->
+  <video class="bgvid" autoplay muted loop playsinline aria-hidden="true" poster="assets/bg-poster.jpg">
+    <source src="assets/bg-mobile.mp4" type="video/mp4" />
   </video>
   <div class="vignette"></div>
 
